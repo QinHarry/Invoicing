@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>User Management</title>
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/default/easyui.css}" />
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/icon.css}" />
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.easyui.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/locale/easyui-lang-zh_CN.js}"></script>
+    <script type="text/javascript" th:inline="javascript">
+
+        var url
+
+        function formatEdit(val, row) {
+            var front = "<a href=\"javascript:openRoleChooseDialog('"+row.roles+"',"+row.id+")\"><img style=\"margin-top: 4px;\" src=\"";
+            var end = "\"></a>"
+            return  front + [[@{/images/edit.gif}]] + end
+        }
+
+        function searchUser() {
+            $("#dg").datagrid("load", {
+                "username": $("#s_username").val()
+            })
+        }
+
+        function resetValue() {
+            $("#username").val("")
+            $("#password").val("")
+            $("#trueName").val("")
+            $("#remarks").val("")
+        }
+
+        function closeUserDialog() {
+            $("#dlg").dialog("close")
+            resetValue()
+        }
+
+        function saveUser() {
+            $("#fm").form("submit", {
+                url: url,
+                onSubmit:function () {
+                    return $(this).form("validate")
+                },
+                dataType: "json",
+                success:function (result) {
+                    var result = eval('('+result+')')
+                    if(result.success){
+                        $.messager.alert("System Information","Save Success！")
+                        resetValue();
+                        $("#dlg").dialog("close")
+                        $("#dg").datagrid("reload")
+                    }else{
+                        $.messager.alert("System Information",result.errorInfo)
+                    }
+                }
+            })
+        }
+
+        function openUserAddDialog() {
+            $("#username").removeAttr("readonly")
+            $("#dlg").dialog("open").dialog("setTitle", "Add user information")
+            url="/admin/user/save"
+        }
+
+        function openUserModifyDialog(){
+            var selectedRows=$("#dg").datagrid("getSelections")
+            if(selectedRows.length!=1){
+                $.messager.alert("System Information","Please choose the item need modify")
+                return;
+            }
+            var row=selectedRows[0]
+            $("#dlg").dialog("open").dialog("setTitle","Modify user information")
+            $("#fm").form("load",row)
+            $("#userName").attr("readonly","readonly")
+            url="/admin/user/save?id="+row.id
+        }
+        
+        function deleteUser() {
+            var selectedRows = $("#dg").datagrid("getSelections")
+            if(selectedRows.length!=1){
+                $.messager.alert("System Information","Please choose the item need modify");
+                return
+            }
+            var id = selectedRows[0].id
+            $.messager.confirm("System Information", "Do you want to delete this data", function (r) {
+                if (r) {
+                    $.post("/admin/user/delete", {id: id}, function (result) {
+                        if (result.success) {
+                            $.messager.alert("System Information", "delete success")
+                            $("#dg").datagrid("reload")
+                        }else {
+                            $.messager.alert("System Information", result.errorInfo)
+                        }
+                    }, "json")
+                }
+            })
+        }
+
+        function openRoleChooseDialog(roles, userId) {
+            var roleArr = roles.split(",")
+            $("#dlg2").dialog("open").dialog("setTitle", "Choose Role")
+            $("#dg2").datagrid({
+                url: "/admin/role/listAll",
+                onLoadSuccess:function (data) {
+                    var allRows = $("#dg2").datagrid("getRows")
+                    for (var i = 0; i < allRows.length; i++) {
+                        var name = allRows[i].name
+                        if ($.inArray(name, roleArr) >= 0) {
+                            $("#dg2").datagrid("checkRow", i)
+                        }
+                    }
+                }
+            })
+            $("#userId").val(userId)
+        }
+
+        function saveRoleSet() {
+            var userId = $("#userId").val()
+            var selectedRows = $("#dg2").datagrid("getSelections")
+            var strRoleIds = []
+            for (var i = 0; i < selectedRows.length; i++) {
+                strRoleIds.push(selectedRows[i].id)
+            }
+            var roleIds = strRoleIds.join(",")
+            $.post("/admin/user/saveRoleSet", {roleIds: roleIds, userId: userId}, function (result) {
+                if (result.success) {
+                    closeRoleSetDialog()
+                    $("#dg").datagrid("reload")
+                }else {
+                    $.messager.alert("System Information", "Submit failure")
+                }
+            }, "json")
+        }
+        
+        function closeRoleSetDialog() {
+            $("#dlg2").dialog("close")
+        }
+
+        $(document).ready(function() {
+
+            $("#dg").datagrid({
+                onDblClickRow:function(index,row){
+                    $("#dlg").dialog("open").dialog("setTitle","Modify user information");
+                    $("#fm").form("load",row);
+                    $("#userName").attr("readonly","readonly");
+                    url="/admin/user/save?id="+row.id;
+                }
+            });
+
+        });
+    </script>
+</head>
+<body>
+    <table id="dg" title="User Management" class="easyui-datagrid"
+           fitColumns="true" pagination="true" rownumbers="true" singleSelect="true"
+           url="/admin/user/list" fit="true" toolbar="#tb">
+        <thead>
+        <th field="id" width="20" align="center">Id</th>
+        <th field="username" width="50" align="center">Username</th>
+        <th field="password" width="50" align="center">Password</th>
+        <th field="trueName" width="50" align="center">TrueName</th>
+        <th field="remarks" width="80" align="center">Remarks</th>
+        <th field="roles" width="150" align="center">RoleList</th>
+        <th field="aa" width="50" align="center" formatter="formatEdit">Role Setting</th>
+        </thead>
+    </table>
+
+    <div id="tb">
+        <div>
+            <a href="javascript:openUserAddDialog()" class="easyui-linkbutton" iconCls="icon-add" plain="true">Add</a>
+            <a href="javascript:openUserModifyDialog()" class="easyui-linkbutton" iconCls="icon-edit" plain="true">Edit</a>
+            <a href="javascript:deleteUser()" class="easyui-linkbutton" iconCls="icon-remove" plain="true">Delete</a>
+        </div>
+        <div>
+            &nbsp;Username:&nbsp;<input type="text" id="s_username" size="20" onkeydown="if(event.keyCode == 13) searchUser()"/>
+            <a href="javascript:searchUser()" class="easyui-linkbutton" iconCls="icon-search" plain="true">Search</a>
+        </div>
+    </div>
+
+    <div id="dlg" class="easyui-dialog" style="width: 450px;height: 300px;padding: 10px 20px"
+         closed="true" buttons="#dlg-buttons" data-options="onClose:function(){resetValue()}">
+        <form id="fm" method="post">
+            <table cellspacing="8px">
+                <tr>
+                    <td>Username: </td>
+                    <td>
+                        <input type="text" id="username" name="username" class="easyui-validatebox" required="true"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Password: </td>
+                    <td>
+                        <input type="text" id="password" name="password" class="easyui-validatebox" required="true" style="width: 250px"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>True Name: </td>
+                    <td>
+                        <input type="text" id="trueName" name="trueName" class="easyui-validatebox" required="true" style="width: 250px"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td valign="top">Remarks: </td>
+                    <td>
+                        <textarea rows="5" cols="40" id="remarks" name="remarks"></textarea>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </div>
+
+    <div id="dlg-buttons">
+        <a href="javascript:saveUser()" class="easyui-linkbutton" iconCls="icon-ok" >Save</a>
+        <a href="javascript:closeUserDialog()" class="easyui-linkbutton" iconCls="icon-cancel" >Close</a>
+    </div>
+
+    <div id="dlg2" class="easyui-dialog" style="width: 500px;height: 350px;"
+    closed="true" buttons="#dlg-buttons2">
+    <input type="hidden" id="userId" name="userId"/>
+    <table id="dg2"  class="easyui-datagrid" fitColumns="true" fit="true">
+        <thead>
+        <th field="cb" checkbox="true" align="center"></th>
+        <th field="id" width="20" align="left" hidden="true">Id</th>
+        <th field="name" width="100" align="left">Role Name</th>
+        <th field="remarks" width="200" align="left">Remarks</th>
+        </thead>
+    </table>
+    </div>
+
+    <div id="dlg-buttons2">
+        <a href="javascript:saveRoleSet()" class="easyui-linkbutton" iconCls="icon-ok" >Save</a>
+        <a href="javascript:closeRoleSetDialog()" class="easyui-linkbutton" iconCls="icon-cancel" >Close</a>
+    </div>
+
+</body>
+</html>

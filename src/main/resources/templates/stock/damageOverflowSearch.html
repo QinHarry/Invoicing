@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Purchase Search</title>
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/default/easyui.css}" />
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/icon.css}" />
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.easyui.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/locale/easyui-lang-zh_CN.js}"></script>
+    <script type="text/javascript" th:src="@{/js/date.js}"></script>
+    <script type="text/javascript" th:inline="javascript">
+
+        var type
+        var url
+
+        function search() {
+            type = $("#s_type").combobox("getValue")
+            var s_begin = $("#s_begin").datebox("getValue")
+            var s_end = $("#s_end").datebox("getValue")
+            $("#dg").datagrid("loadData",{total:0,rows:[]});
+            $("#dg2").datagrid("loadData",{total:0,rows:[]});
+            if(type==1){
+                $.post("/admin/damageList/list",{bDamageDate:s_begin,eDamageDate:s_end},function(result){
+                    var rows=result.rows;
+                    for(var i=0;i<rows.length;i++){
+                        var row=rows[i];
+                        $("#dg").datagrid('appendRow',{
+                            id:row.id,
+                            number:row.damageNumber,
+                            date:row.damageDate,
+                            type:'报损单',
+                            user:row.user,
+                            remarks:row.remarks
+                        });
+                    }
+                },"json");
+            }else if(type==2){
+                $.post("/admin/overflowList/list",{bOverflowDate:s_begin,eOverflowDate:s_end},function(result){
+                    var rows=result.rows;
+                    for(var i=0;i<rows.length;i++){
+                        var row=rows[i];
+                        $("#dg").datagrid('appendRow',{
+                            id:row.id,
+                            number:row.overflowNumber,
+                            date:row.overflowDate,
+                            type:'报溢单',
+                            user:row.user,
+                            remarks:row.remarks
+                        });
+                    }
+                },"json");
+            }
+        }
+
+        function formatUser(val, row) {
+            return val.trueName
+        }
+
+        $(document).ready(function () {
+            $("#s_begin").datebox("setValue",genLastMonthDayStr())
+            $("#s_end").datebox("setValue",genTodayStr())
+
+            $("#dg").datagrid({
+                onClickRow: function (index, row) {
+                    if(type==1){
+                        $("#dg2").datagrid({
+                            url:'/admin/damageList/listGoods',
+                            queryParams:{
+                                damageListId:row.id
+                            }
+                        });
+                    }else if(type==2){
+                        $("#dg2").datagrid({
+                            url:'/admin/overflowList/listGoods',
+                            queryParams:{
+                                overflowListId:row.id
+                            }
+                        });
+                    }
+                }
+            })
+        })
+
+        function formatPrice(val, row) {
+            return "¥"+val
+        }
+
+        function formatTotal(val, row) {
+            return "¥"+val
+        }
+
+    </script>
+</head>
+<body class="easyui-layout" style="margin: 1px">
+<div region="north" style="height: 350px">
+    <table id="dg" title="Damage or Overflow List Query" class="easyui-datagrid"
+           fitColumns="true"  rownumbers="true" singleSelect="true"
+           fit="true" toolbar="#tb">
+        <thead>
+        <th field="id" width="20" align="center" hidden="true">Id</th>
+        <th field="number" width="30" align="center">Number</th>
+        <th field="date" width="30" align="center">Date</th>
+        <th field="type" width="20" align="center">Type</th>
+        <th field="user" width="20" align="center" formatter="formatUser">User</th>
+        <th field="remarks" width="100" align="center">Remarks</th>
+        </thead>
+    </table>
+
+    <div id="tb">
+        <fieldset style="border-color: #E7F0FF">
+            <legend>Query Setting</legend>
+            &nbsp;&nbsp;&nbsp;Query Date:&nbsp;
+            <input id="s_begin" class="easyui-datebox" editable=false style="width:100px"/>
+            &nbsp;&nbsp;-&nbsp;&nbsp;
+            <input id="s_end" class="easyui-datebox" editable=false style="width:100px"/>
+            &nbsp;&nbsp;&nbsp;Type:&nbsp;
+            <select class="easyui-combobox" id="s_type" style="width: 100px" editable="false" panelHeight="auto">
+                <option value="1">Damage</option>
+                <option value="2">Overflow</option>
+            </select>
+            &nbsp;&nbsp;<a href="javascript:search()" class="easyui-linkbutton" iconCls="icon-search" plain="true">Search</a>
+        </fieldset>
+    </div>
+</div>
+<div region="center" style="margin-top: 5px">
+    <table id="dg2" class="easyui-datagrid"
+           fitColumns="true" rownumbers="true" singleSelect="true" fit="true">
+        <thead>
+        <th field="code" width="30" align="center">Code</th>
+        <th field="name" width="150" align="center">Name</th>
+        <th field="model" width="50" align="center">Model</th>
+        <th field="price" width="50" align="right" formatter="formatPrice">Unit Price</th>
+        <th field="num" width="50" align="center">Quantity</th>
+        <th field="unit" width="50" align="center">Unit</th>
+        <th field="total" width="50" align="right" formatter="formatTotal">Total</th>
+        </thead>
+    </table>
+</div>
+
+</body>
+</html>

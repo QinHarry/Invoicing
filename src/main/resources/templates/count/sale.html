@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Goods Sale Statistics</title>
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/default/easyui.css}" />
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/icon.css}" />
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.easyui.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/locale/easyui-lang-zh_CN.js}"></script>
+    <script type="text/javascript" th:src="@{/js/date.js}"></script>
+    <script type="text/javascript" th:inline="javascript">
+
+        function chooseGoodsType(){
+            $("#dlg").dialog("open").dialog("setTitle","Choose Goods Type")
+            $("#typeTree").tree({
+                url:'/admin/goodsType/loadTreeInfo',
+                onLoadSuccess:function(){
+                    var rootNode=$("#typeTree").tree("getRoot")
+                    $("#typeTree").tree("expand",rootNode.target)
+                }
+            })
+        }
+
+        function saveGoodsTypeChoose(){
+            var node=$("#typeTree").tree("getSelected");
+            if(node!=null && node.id!=1){
+                $("#typeId").val(node.id);
+                $("#typeName").val(node.text);
+            }else{
+                $("#typeId").val("");
+                $("#typeName").val("");
+            }
+
+            $("#dlg").dialog("close");
+        }
+
+        function closeGoodsTypeChooseDialog(){
+            $("#dlg").dialog("close");
+        }
+
+        function search(){
+            $("#dg").datagrid("loadData",{total:0,rows:[]})
+            var s_begin=$("#s_begin").datebox("getValue")
+            var s_end=$("#s_end").datebox("getValue")
+            var typeId=$("#typeId").val()
+            var codeOrName=$("#codeOrName").val()
+
+            $.post("/admin/saleList/listCount",{bSaleDate:s_begin,eSaleDate:s_end,"type.id":typeId,codeOrName:codeOrName},function(result){
+                var rows=result.rows
+                for(var i=0;i<rows.length;i++){
+                    var row=rows[i]
+                    var goodsRows=row.saleListGoodsList
+                    for(var j=0;j<goodsRows.length;j++){
+                        var goodsRow=goodsRows[j]
+                        $("#dg").datagrid('appendRow',{
+                            number:row.saleNumber,
+                            type:"Sale",
+                            date:row.saleDate,
+                            customerName:row.customer.name,
+                            code:goodsRow.code,
+                            name:goodsRow.name,
+                            model:goodsRow.model,
+                            typeName:goodsRow.type.name,
+                            unit:goodsRow.unit,
+                            price:goodsRow.price,
+                            num:goodsRow.num,
+                            amount:goodsRow.price*goodsRow.num
+                        })
+                    }
+                }
+            },"json")
+
+
+            $.post("/admin/customerReturnList/listCount",{bCustomerReturnDate:s_begin,eCustomerReturnDate:s_end,"type.id":typeId,codeOrName:codeOrName},function(result){
+                var rows=result.rows
+                for(var i=0;i<rows.length;i++){
+                    var row=rows[i]
+                    var goodsRows=row.customerReturnListGoodsList
+                    for(var j=0;j<goodsRows.length;j++){
+                        var goodsRow=goodsRows[j]
+                        $("#dg").datagrid('appendRow',{
+                            number:row.customerReturnNumber,
+                            type:"CustomerReturnList",
+                            date:row.customerReturnDate,
+                            customerName:row.customer.name,
+                            code:goodsRow.code,
+                            name:goodsRow.name,
+                            model:goodsRow.model,
+                            typeName:goodsRow.type.name,
+                            unit:goodsRow.unit,
+                            price:goodsRow.price,
+                            num:goodsRow.num,
+                            amount:goodsRow.price*goodsRow.num
+                        })
+                    }
+                }
+            },"json")
+        }
+
+        function formatPrice(val,row){
+            return "¥"+val;
+        }
+
+        function formatAmount(val,row){
+            return "¥"+val;
+        }
+
+
+        $(document).ready(function() {
+            $("#s_begin").datebox("setValue",genLastMonthDayStr())
+            $("#s_end").datebox("setValue",genTodayStr())
+        })
+
+    </script>
+</head>
+<body style="margin: 1px">
+<table id="dg" title="Goods Sale Statistics" class="easyui-datagrid"
+       fitColumns="true" rownumbers="true"
+       fit="true" toolbar="#tb">
+    <thead>
+    <th field="number" width="40" align="center">Number</th>
+    <th field="type" width="20" align="center">Type</th>
+    <th field="date" width="30" align="center">Date</th>
+    <th field="customerName" width="50" align="center">Customer</th>
+    <th field="code" width="20" align="center">Code</th>
+    <th field="name" width="50" align="center">Name</th>
+    <th field="model" width="20" align="center">Model</th>
+    <th field="typeName" width="30" align="center">Type</th>
+    <th field="unit" width="10" align="center">Unit</th>
+    <th field="price" width="20" align="right" formatter="formatPrice">Price</th>
+    <th field="num" width="10" align="center">Num</th>
+    <th field="amount" width="15" align="right" formatter="formatAmount">Amount</th>
+    </thead>
+</table>
+
+<div id="tb">
+    <div style="padding: 5px">
+        <fieldset style="border-color: #E7F0FF">
+            <legend>Query Setting</legend>
+            &nbsp;&nbsp;&nbsp;Date:&nbsp;
+            <input id="s_begin" class="easyui-datebox" editable=false style="width:100px"/>
+            &nbsp;&nbsp;-&nbsp;&nbsp;
+            <input id="s_end" class="easyui-datebox" editable=false style="width:100px"/>
+            <input type="hidden" id="typeId"/>
+            &nbsp;Goods Type&nbsp;<input type="text" id="typeName" readonly="readonly" onclick="chooseGoodsType()" style="width: 90px" />
+            &nbsp;Code or Name:&nbsp;<input type="text" id="codeOrName" size="20"  onkeydown="if(event.keyCode==13) search()"/>
+            &nbsp;&nbsp;<a href="javascript:search()" class="easyui-linkbutton" iconCls="icon-search" plain="true">Search</a>
+        </fieldset>
+    </div>
+</div>
+
+<div id="dlg" class="easyui-dialog" style="width: 180px;height: 300px;padding: 10px 10px;top: 60px;left: 76px"
+     closed="true" buttons="#dlg-buttons" >
+    <ul id="typeTree" class="easyui-tree" ></ul>
+</div>
+
+<div id="dlg-buttons">
+    <a href="javascript:saveGoodsTypeChoose()" class="easyui-linkbutton" iconCls="icon-ok" plain="true">Choose</a>
+    <a href="javascript:closeGoodsTypeChooseDialog()" class="easyui-linkbutton" iconCls="icon-cancel" plain="true">Close</a>
+</div>
+</body>
+</html>

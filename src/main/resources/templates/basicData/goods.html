@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Goods Management</title>
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/default/easyui.css}" />
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/icon.css}" />
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.easyui.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/locale/easyui-lang-zh_CN.js}"></script>
+    <script type="text/javascript" th:inline="javascript">
+
+        var url
+        
+        $(document).ready(function () {
+
+            $("#tree").tree({
+                lines: true,
+                url: "/admin/goodsType/loadTreeInfo",
+                onLoadSuccess: function () {
+                    $("#tree").tree("expandAll")
+                },
+                onClick: function (node) {
+                    if (node.attributes.state == 0) {
+                        $("#del").linkbutton("enable")
+                    }else {
+                        $("#del").linkbutton("disable")
+                    }
+                    $("#dg").datagrid("load", {
+                        "name": $("#s_name").val(),
+                        "type.id": node.id
+                    })
+                }
+            })
+
+            $("#dg-unit-choose").datagrid({
+                onDblClickRow: function (index, row) {
+                    var name = row.name
+                    $("#unit").combobox("reload")
+                    $("#unit").combobox("setValue", name)
+                    $("#dlg-unit-choose").dialog("close")
+                }
+            })
+
+            $("#dg").datagrid({
+                onDblClickRow: function (index, row) {
+                    $("#dlg-goods").dialog("open").dialog("setTitle", "Edit One Goods")
+                    $("#fm-goods").form("load", row)
+                    $("#typeId").val(row.type.id)
+                    $("#typeName").val(row.type.name)
+                    url="/admin/goods/save?id=" + row.id
+                    $("#saveAndAddNextGoods").hide()
+                }
+            })
+        })
+        
+        function resetDlgGoods() {
+            $("#typeId").val("")
+            $("#typeName").val("")
+            $("#code").val("")
+            $("#name").val("")
+            $("#model").val("")
+            $("#unit").val("")
+            $("#purchasingPrice").val("")
+            $("#sellingPrice").val("")
+            $("#minNum").val("")
+            $("#inventoryQuantity").val("")
+            $("#producer").val("")
+            $("#remarks").val("")
+        }
+
+        // Goods type operation
+
+        function openGoodsTypeAddDialog() {
+            $("#dlg").dialog("open").dialog("setTitle", "Add New Goods Type")
+        }
+
+        function deleteGoodsType() {
+            var node = $("#tree").tree("getSelected")
+            var id = node.id
+            $.post("/admin/goodsType/delete", {id : id}, function (result) {
+                if (result.success) {
+                    $("#tree").tree("reload")
+                    $("#del").linkbutton("disable")
+                }else {
+                    $.messager.alert("System Information", result.errorInfo)
+                }
+            }, "json")
+        }
+        
+        function saveGoodsType() {
+            if (!$("#fm").form("validate")) {
+                return
+            }
+            var goodsTypeName = $("#goodsTypeName").val()
+            var node = $("#tree").tree("getSelected")
+            var parentId
+            if (node == null) {
+                parentId = 1
+            }else {
+                parentId = node.id
+            }
+            $.post("/admin/goodsType/save", {name:goodsTypeName, parentId: parentId}, function (result) {
+                if (result.success) {
+                    $("#tree").tree("reload")
+                    closeGoodsTypeDialog()
+                }else {
+                    $.messager.alert("System Information", "Submit fail, please contact administer")
+                }
+            }, "json")
+        }
+        
+        function closeGoodsTypeDialog() {
+            $("#dlg").dialog("close")
+            $("#goodsTypeName").val("")
+        }
+
+
+        // Goods operation
+
+        function formatGoodsTypeId(val, row) {
+            return row.type.id
+        }
+
+        function formatGoodsTypeName(val, row) {
+            return row.type.name
+        }
+        
+        function formatPurchasingPrice(val,row) {
+            return "¥"+val
+        }
+        
+        function formatSellingPrice(val,row) {
+            return "¥"+val
+        }
+        
+        function searchGoods() {
+            $("#dg").datagrid("load", {
+                "name":$("#s_name").val()
+            })
+        }
+
+        function openGoodsAddDialog() {
+            $("#dlg-goods").dialog("open").dialog("setTitle", "Add New Goods")
+            url="/admin/goods/save"
+            var node = $("#tree").tree("getSelected")
+            if (node != null && node.id != 1) {
+                $("#typeId").val(node.id)
+                $("#typeName").val(node.text)
+            }else {
+                $("#typeId").val("")
+                $("#typeName").val("")
+            }
+            $.post("/admin/goods/genGoodsCode", {}, function (result) {
+                $("#code").val(result)
+            })
+        }
+
+        function openGoodsModifyDialog() {
+            var selectedRows = $("#dg").datagrid("getSelections")
+            if (selectedRows.length != 1) {
+                $.messager.alert("System Information", "Please choose one item to modify")
+                return
+            }
+            var row = selectedRows[0]
+            $("#dlg-goods").dialog("open").dialog("setTitle", "Modify One Goods")
+            $("#fm-goods").form("load", row)
+            $("#typeId").val(row.type.id)
+            $("#typeName").val(row.type.name)
+            url="/admin/goods/save?id=" + row.id
+            $("#saveAndAddNextGoods").hide()
+        }
+        
+        function deleteGoods() {
+            var selectedRows = $("#dg").datagrid("getSelections")
+            if (selectedRows.length != 1) {
+                $.messager.alert("System Information", "Please choose one item to delete")
+                return
+            }
+            var id = selectedRows[0].id
+            $.messager.confirm("System Information", "Do you want to delete this item", function (r) {
+                if (r) {
+                    $.post("/admin/goods/delete", {id: id}, function (result) {
+                        if (result.success) {
+                            $.messager.alert("System Information", "Delete success")
+                            $("#dg").datagrid("reload")
+                        }else {
+                            $.messager.alert("System Information", result.errorInfo)
+                        }
+                    }, "json")
+                }
+            })
+        }
+
+        // Goods add, edit, delete dialog
+        
+        function saveGoods(type) {
+            $("#fm-goods").form("submit", {
+                url: url,
+                onSubmit: function () {
+                    return $(this).form("validate")
+                },
+                success: function (result) {
+                    var result = eval("(" + result + ")")
+                    if (result.success) {
+                        $.messager.alert("System Information", "Save success")
+                        resetDlgGoods()
+                        if (type == 1) {
+                            $("#dlg-goods").dialog("close")
+                        }else if (type == 2) {
+                            var node = $("#tree").tree("getSelected")
+                            if (node != null && node.id != 1) {
+                                $("#typeId").val(node.id)
+                                $("#typeName").val(node.text)
+                            }else {
+                                $("#typeId").val("")
+                                $("#typeName").val("")
+                            }
+                            $.post("/admin/goods/genGoodsCode", {}, function (result) {
+                                $("#code").val(result)
+                            })
+                        }
+                        $("#dg").datagrid("reload")
+                    }else {
+                        $.messager.alert("System Information", result.errorInfo)
+                    }
+                }
+            })
+        }
+
+        function openChooseGoodsTypeDialog() {
+            $("#dlg-type-choose").dialog("open").dialog("setTitle", "Choose Goods Type")
+            $("#typeTree").tree({
+                url: "/admin/goodsType/loadTreeInfo",
+                onLoadSuccess:function () {
+                    var rootNode = $("#typeTree").tree("getRoot")
+                    $("#typeTree").tree("expand", rootNode.target)
+                }
+            })
+        }
+        
+        function closeGoodsDialog() {
+            resetDlgGoods()
+            $("#dlg-goods").dialog("close")
+        }
+
+        function openChooseGoodsUnitDialog() {
+            $("#dlg-unit-choose").dialog("open").dialog("setTitle", "Unit")
+        }
+
+
+
+        //goods type choose dialog
+
+        
+        function saveGoodsTypeChoose() {
+            var node = $("#typeTree").tree("getSelected")
+            if (node != null && node.id != 1) {
+                $("#typeId").val(node.id)
+                $("#typeName").val(node.text)
+            }
+            $("#dlg-type-choose").dialog("close")
+        }
+
+        function closeGoodsTypeChooseDialog() {
+            $("#dlg-type-choose").dialog("close")
+        }
+        
+        // goods unit choose dialog
+        
+        function closeGoodsUnitDialog() {
+            $("#dlg-unit-choose").dialog("close")
+        }
+        
+        function chooseGoodsUnit() {
+            var selectedRows = $("#dg-unit-choose").datagrid("getSelections")
+            if (selectedRows.length != 1) {
+                $.messager.alert("System Information", "Please choose one item to enter")
+                return
+            }
+            var name = selectedRows[0].name
+            $("#unit").combobox("reload")
+            $("#unit").combobox("setValue", name)
+            $("#dlg-unit-choose").dialog("close")
+        }
+        
+        function deleteGoodsUnit() {
+            var selectedRows = $("#dg-unit-choose").datagrid("getSelections")
+            if (selectedRows.length != 1) {
+                $.messager.alert("System Information", "Please choose one item to delete")
+                return
+            }
+            var id = selectedRows[0].id
+            $.messager.confirm("System Information", "Do you want to delete this item?", function (r) {
+                if (r) {
+                    $.post("/admin/goodsUnit/delete", {id: id}, function (result) {
+                        if (result.success) {
+                            $("#dg-unit-choose").datagrid("reload")
+                            $("#unit").combobox("reload")
+                        }else {
+                            $.messager.alert("System Information", result.errorInfo)
+                        }
+                    }, "json")
+                }
+            })
+        }
+
+        function openGoodsUnitAddDialog() {
+            $("#dlg-unit-add").dialog("open").dialog("setTitle", "Add One Unit")
+            url="/admin/goodsUnit/save"
+        }
+
+        // goods unit add dialog
+
+        function saveGoodsUnit() {
+            $("#fm-unit-add").form("submit", {
+                url: url,
+                onSubmit: function () {
+                    return $(this).form("validate")
+                },
+                success:function (result) {
+                    var result = eval("(" + result + ")")
+                    if (result.success) {
+                        $.messager.alert("System Information", "Save success")
+                        closeGoodsUnitAddDialog()
+                        $("#unit").combobox("reload")
+                        $("#dg-unit-choose").datagrid("reload")
+                    }else {
+                        $.messager.alert("System Information", result.errorInfo)
+                    }
+                    $("#saveAndAddNextGoods").show
+                }
+            })
+        }
+        
+        function closeGoodsUnitAddDialog() {
+            $("#dlg-unit-add").dialog("close")
+            $("#goodsUnitName").val("")
+        }
+
+
+
+    </script>
+</head>
+<body class="easyui-layout" style="padding-top: 2px">
+    <div data-options="region: 'west', collapsible: false" style="width: 200px" title="Goods Type" split="true">
+        <ul id="tree" class="easyui-tree" style="padding: 10px"></ul>
+        <div style="position: absolute; bottom: 10px; left: 15px">
+            <a href="javascript:openGoodsTypeAddDialog()" class="easyui-linkbutton" iconCls="icon-add">Add</a>
+            <a id="del" href="javascript:deleteGoodsType()" class="easyui-linkbutton" disabled="true" iconCls="icon-remove">Delete</a>
+        </div>
+    </div>
+
+    <div data-options="region: 'center'">
+        <table id="dg" title="Goods Management" class="easyui-datagrid"
+               fitColumns="true" pagination="true" rownumbers="true" singleSelect="true"
+               url="/admin/goods/list" fit="true" toolbar="#tb">
+            <thead>
+            <th field="id" width="30" align="center">Id</th>
+            <th field="code" width="50" align="center">Code</th>
+            <th field="name" width="150" align="center">Name</th>
+            <th field="model" width="50" align="center">Model</th>
+            <th field="typeId" width="40" align="center" hidden=true formatter="formatGoodsTypeId">Type Id</th>
+            <th field="typeName" width="50" align="center" formatter="formatGoodsTypeName">Type</th>
+            <th field="unit" width="50" align="center">Unit</th>
+            <th field="purchasingPrice" width="50" align="right" formatter="formatPurchasingPrice">Purchasing Price</th>
+            <th field="sellingPrice" width="50" align="right" formatter="formatSellingPrice">Selling Price</th>
+            <th field="minNum" width="50" align="center">Lower Limit of Inventory</th>
+            <th field="producer" width="200" align="center">Producer</th>
+            <th field="remarks" hidden=true width="150" align="center">Remarks</th>
+            </thead>
+        </table>
+
+        <div id="tb">
+            <div>
+                <a href="javascript:openGoodsAddDialog()" class="easyui-linkbutton" iconCls="icon-add" plain="true">Add</a>
+                <a href="javascript:openGoodsModifyDialog()" class="easyui-linkbutton" iconCls="icon-edit" plain="true">Edit</a>
+                <a href="javascript:deleteGoods()" class="easyui-linkbutton" iconCls="icon-remove" plain="true">Delete</a>
+            </div>
+            <div>
+                &nbsp;Supplier &nbsp; Name:&nbsp;<input type="text" id="s_name" size="20" onkeydown="if(event.keyCode == 13) searchGoods()"/>
+                <a href="javascript:searchGoods()" class="easyui-linkbutton" iconCls="icon-search" plain="true">Search</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="dlg" class="easyui-dialog" style="width: 300px; height: 120px; padding: 10px 20px"
+         closed="true" buttons="#dlg-buttons" data-options="onClose:function(){$('#goodsTypeName').val('')}">
+        <form id="fm" method="post">
+            <div>
+                Goods Type: &nbsp;<input type="text" id="goodsTypeName" name="goodsTypeName" class="easyui-validatebox" required="true"/>
+            </div>
+        </form>
+    </div>
+
+    <div id="dlg-buttons">
+        <a href="javascript:saveGoodsType()" class="easyui-linkbutton" iconCls="icon-ok">Save</a>
+        <a href="javascript:closeGoodsTypeDialog()" class="easyui-linkbutton" iconCls="icon-cancel">Close</a>
+    </div>
+
+    <div id="dlg-goods" class="easyui-dialog" style="width: 500px; height: 400px; padding: 10px 20px"
+         closed="true" buttons="#dlg-buttons-goods" data-options="onClose:function(){resetDlgGoods()}">
+        <form id="fm-goods" method="post">
+            <input type="hidden" id="state" name="state"/>
+            <input type="hidden" id="inventoryQuantity" name="inventoryQuantity"/>
+            <table>
+                <tr>
+                    <td>Type:&nbsp;</td>
+                    <td>
+                        <input type="hidden" id="typeId" name="type.id"/>
+                        <input type="text" id="typeName" class="easyui-validatebox" required="true" style="width: 90px" readonly="readonly" onclick="openChooseGoodsTypeDialog()"/>
+                        <a href="javascript:openChooseGoodsTypeDialog()" class="easyui-linkbutton" iconCls="icon-search" plain="true"></a>
+                    </td>
+                    <td>&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                    <td>Code:&nbsp;</td>
+                    <td>
+                        <input type="text" id="code" name="code" class="easyui-validatebox" required="true" style="width: 120px" readonly="readonly"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Name:&nbsp;</td>
+                    <td colspan="4">
+                        <input type="text" id="name" name="name" class="easyui-validatebox" required="true" style="width: 340px"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Model:</td>
+                    <td>
+                        <input type="text" id="model" name="model" class="easyui-validatebox" required="true" style="width: 120px"  />
+                    </td>
+                    <td>&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                    <td>Unit:</td>
+                    <td>
+                        <select class="easyui-combobox" required="true" id="unit" name="unit" style="width: 90px" data-options="panelHeight:'auto',editable:false,valueField:'name',textField:'name',url:'/admin/goodsUnit/comboList'"></select>
+                        <a href="javascript:openChooseGoodsUnitDialog()" class="easyui-linkbutton" iconCls="icon-search" plain="true"></a>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Purchasing Price:</td>
+                    <td>
+                        <input type="hidden" id="lastPurchasingPrice" name="lastPurchasingPrice"/>
+                        <input type="text" id="purchasingPrice" name="purchasingPrice" class="easyui-numberbox" data-options="min:0" required="true" style="width: 120px"  />
+                    </td>
+                    <td>&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                    <td>Selling Price:</td>
+                    <td>
+                        <input type="text" id="sellingPrice" name="sellingPrice" class="easyui-numberbox" data-options="min:0" required="true" style="width: 120px"  />
+                    </td>
+                </tr>
+                <tr>
+                    <td>Inventory Low Limit:</td>
+                    <td colspan="4">
+                        <input type="text" id="minNum" name="minNum" class="easyui-numberbox" data-options="min:0" required="true" style="width: 120px"  />
+                    </td>
+                </tr>
+                <tr>
+                    <td>Producer: </td>
+                    <td colspan="4">
+                        <input type="text" id="producer" name="producer" class="easyui-validatebox" required="true" style="width: 340px"  />
+                    </td>
+                </tr>
+                <tr>
+                    <td valign="top">Remarks: </td>
+                    <td colspan="4">
+                        <textarea rows="5" cols="46" id="remarks" name="remarks"></textarea>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </div>
+
+    <div id="dlg-buttons-goods">
+        <a id="saveAndAddNextGoods" href="javascript:saveGoods(2)" class="easyui-linkbutton" iconCls="icon-ok">Save And Add Next Goods</a>
+        <a href="javascript:saveGoods(1)" class="easyui-linkbutton" iconCls="icon-ok" >Save</a>
+        <a href="javascript:closeGoodsDialog()" class="easyui-linkbutton" iconCls="icon-cancel" >Close</a>
+    </div>
+
+    <div id="dlg-type-choose" class="easyui-dialog" style="width: 180px;height: 300px;padding: 10px 10px"
+         closed="true" buttons="#dlg-type-choose-buttons">
+        <ul id="typeTree" class="easyui-tree"></ul>
+    </div>
+
+    <div id="dlg-type-choose-buttons">
+        <a href="javascript:saveGoodsTypeChoose()" class="easyui-linkbutton" iconCls="icon-ok" plain="true">Choose</a>
+        <a href="javascript:closeGoodsTypeChooseDialog()" class="easyui-linkbutton" iconCls="icon-cancel" plain="true">Choose</a>
+    </div>
+
+    <div id="dlg-unit-choose" class="easyui-dialog" style="width: 200px; height: 300px;" closed="true">
+        <table id="dg-unit-choose"  class="easyui-datagrid"
+               fitColumns="true"  rownumbers="true" singleSelect="true"
+               url="/admin/goodsUnit/listAll" fit="true" toolbar="#tb-unit-choose">
+            <thead>
+            <th field="id" width="100" align="center" hidden="true">Id</th>
+            <th field="name" width="100" align="center">Name</th>
+            </thead>
+        </table>
+
+        <div id="tb-unit-choose">
+            <div>
+                <a href="javascript:openGoodsUnitAddDialog()" class="easyui-linkbutton" plain="true">Add</a>
+                <a href="javascript:deleteGoodsUnit()" class="easyui-linkbutton" plain="true">Delete</a>
+                <a href="javascript:chooseGoodsUnit()" class="easyui-linkbutton" plain="true">Enter</a>
+                <a href="javascript:closeGoodsUnitDialog()" class="easyui-linkbutton" plain="true">Cancel</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="dlg-unit-add" class="easyui-dialog" style="width: 300px; height: 120px; padding: 10px 20px"
+         closed="true" buttons="#dlg-unit-add-buttons" data-options="onClose:function(){$('#goodsUnitName').val('');}">
+        <form id="fm-unit-add" method="post">
+            <div>
+                Goods &nbsp;Unit:&nbsp;<input type="text" id="goodsUnitName" name="name" class="easyui-validatebox" required="true"/>
+            </div>
+        </form>
+    </div>
+
+    <div id="dlg-unit-add-buttons">
+        <a href="javascript:saveGoodsUnit()" class="easyui-linkbutton" iconCls="icon-ok">Save</a>
+        <a href="javascript:closeGoodsUnitAddDialog()" class="easyui-linkbutton" iconCls="icon-cancel">Close</a>
+    </div>
+
+
+</body>
+</html>

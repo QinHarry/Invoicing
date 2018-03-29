@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>System Log</title>
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/default/easyui.css}" />
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/icon.css}" />
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.easyui.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/locale/easyui-lang-zh_CN.js}"></script>
+    <script type="text/javascript" th:inline="javascript">
+
+        var url
+
+        function formatUser(val, row) {
+            return val.trueName + "&nbsp;(" + val.username + ")&nbsp;";
+        }
+
+        function searchLog() {
+            $("#dg").datagrid("load", {
+                "type": $("#s_type").combobox("getValue"),
+                "user.trueName": $("#s_trueName").val(),
+                "btime": $("#s_btime").datetimebox("getValue"),
+                "etime": $("#s_etime").datetimebox("getValue")
+            })
+        }
+        
+        function resetValue() {
+            $("#s_type").combobox("setValue", "")
+            $("#s_trueName").val("")
+            $("#s_btime").datetimebox("setValue", "")
+            $("#s_etime").datetimebox("setValue", "")
+        }
+
+    </script>
+</head>
+<body>
+    <table id="dg" title="System Log" class="easyui-datagrid"
+           fitColumns="true" pagination="true" rownumbers="true" singleSelect="true"
+           url="/admin/log/list" fit="true" toolbar="#tb">
+        <thead>
+        <th field="id" width="20" align="center">Id</th>
+        <th field="type" width="30" align="center">Log Type</th>
+        <th field="user" width="50" align="center" formatter="formatUser">Operator</th>
+        <th field="time" width="50" align="center">Operation Time</th>
+        <th field="content" width="250" align="left">Content</th>
+        </thead>
+    </table>
+
+    <div id="tb">
+        <fieldset style="border-color: #E7F0FF">
+            <legend>Query Setting</legend>
+            &nbsp;Query &nbsp;Setting &nbsp;
+            <select class="easyui-combobox" id="s_type" style="width:154px;" editable=false panelHeight="auto">
+                <option value="">All Types</option>
+                <option value="LoginAction">Login</option>
+                <option value="LogoutAction">Logout</option>
+                <option value="QueryAction">Query</option>
+                <option value="UpdateAction">Update</option>
+                <option value="AddAction">Add</option>
+                <option value="DeleteAction">Delete</option>
+            </select>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;User: &nbsp;
+            <input type="text" id="s_trueName" size="20" onkeydown="if(event.keyCode == 13) searchLog()"/>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Time: &nbsp;
+            <input id="s_btime" class="easyui-datetimebox" editable=false style="width: 150px;"/>
+            &nbsp;&nbsp;-&nbsp;&nbsp;
+            <input id="s_etime" class="easyui-datetimebox" editable=false style="width: 150px;"/>
+            &nbsp;&nbsp;<a href="javascript:searchLog()" class="easyui-linkbutton" iconCls="icon-search" plain="true">Search</a>
+            &nbsp;&nbsp;<a href="javascript:resetValue()" class="easyui-linkbutton" iconCls="icon-reset" plain="true">Reset</a>
+        </fieldset>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Customer Statistics</title>
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/default/easyui.css}" />
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/icon.css}" />
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.easyui.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/locale/easyui-lang-zh_CN.js}"></script>
+    <script type="text/javascript" th:src="@{/js/date.js}"></script>
+    <script type="text/javascript" th:inline="javascript">
+
+        function search() {
+            $("#dg").datagrid("loadData",{total:0,rows:[]})
+            $("#dg2").datagrid("loadData",{total:0,rows:[]})
+            var s_begin = $("#s_begin").datebox("getValue")
+            var s_end = $("#s_end").datebox("getValue")
+            var state = $("#s_state").combobox("getValue")
+            var customerId
+            if(isNaN($("#s_customer").combobox("getValue"))){
+                customerId = ""
+            }else{
+                customerId = $("#s_customer").combobox("getValue")
+            }
+
+            $.post("/admin/saleList/list",{bSaleDate:s_begin,eSaleDate:s_end,state:state,'customer.id':customerId},function(result){
+                var rows=result.rows
+                for(var i=0;i<rows.length;i++){
+                    var row=rows[i]
+                    $("#dg").datagrid('appendRow',{
+                        id:row.id,
+                        customerName:row.customer.name,
+                        date:row.saleDate,
+                        number:row.saleNumber,
+                        type:'Sale',
+                        amount:row.amountPayable,
+                        state:row.state,
+                        user:row.user.trueName,
+                        remarks:row.remarks
+                    })
+                }
+            },"json")
+
+            $.post("/admin/customerReturnList/list",{bCustomerReturnDate:s_begin,eCustomerReturnDate:s_end,state:state,'customer.id':customerId},function(result){
+                var rows=result.rows
+                for(var i=0;i<rows.length;i++){
+                    var row=rows[i];
+                    $("#dg").datagrid('appendRow',{
+                        id:row.id,
+                        customerName:row.customer.name,
+                        date:row.customerReturnDate,
+                        number:row.customerReturnNumber,
+                        type:'CustomerReturn',
+                        amount:row.amountPayable,
+                        state:row.state,
+                        user:row.user.trueName,
+                        remarks:row.remarks
+                    })
+                }
+            },"json")
+        }
+
+        function formatAmount(val, row) {
+            return "¥"+val
+        }
+
+        function formatState(val,row){
+            if(val==1){
+                return "Paid";
+            }else if(val==2){
+                return "Unpaid";
+            }
+        }
+
+        function formatUser(val, row) {
+            return val.trueName
+        }
+
+        function pay() {
+            var selectedRows = $("#dg").datagrid("getSelections")
+            if (selectedRows.length != 1) {
+                $.messager.alert("System Information", "Please choose one item to pay")
+                return
+            }
+            var id = selectedRows[0].id
+            var type = selectedRows[0].type
+            $.messager.confirm("System Information", "Do you want to pay it?", function (r) {
+                if (r) {
+                    if (type == "Sale") {
+                        $.post("/admin/saleList/update", {id: id}, function (result) {
+                            if (result.success) {
+                                $.messager.alert("System Information", "Submit success")
+                                search()
+                            } else {
+                                $.messager.alert("System Information", result.errorInfo)
+                            }
+                        }, "json")
+                    }else {
+                        $.post("/admin/customerReturnList/update", {id: id}, function (result) {
+                            if (result.success) {
+                                $.messager.alert("System Information", "Submit success")
+                                search()
+                            } else {
+                                $.messager.alert("System Information", result.errorInfo)
+                            }
+                        }, "json")
+                    }
+                }
+            })
+        }
+
+        $(document).ready(function () {
+            $("#s_begin").datebox("setValue", genLastMonthDayStr())
+            $("#s_end").datebox("setValue", genTodayStr())
+
+            $("#dg").datagrid({
+                onClickRow: function (index, row) {
+                    if(row.type=="Sale"){
+                        $("#dg2").datagrid({
+                            url:'/admin/saleList/listGoods',
+                            queryParams:{
+                                saleListId:row.id
+                            }
+                        });
+                    }else if(row.type=="CustomerReturn"){
+                        $("#dg2").datagrid({
+                            url:'/admin/customerReturnList/listGoods',
+                            queryParams:{
+                                customerReturnListId:row.id
+                            }
+                        });
+                    }
+                }
+            })
+        })
+
+        function formatPrice(val, row) {
+            return "¥"+val
+        }
+
+        function formatTotal(val, row) {
+            return "¥"+val
+        }
+
+    </script>
+</head>
+<body class="easyui-layout" style="margin: 1px">
+<div region="north" style="height: 350px">
+    <table id="dg" title="Customer Statistics" class="easyui-datagrid"
+           fitColumns="true"  rownumbers="true" singleSelect="true"
+           fit="true" toolbar="#tb">
+        <thead>
+        <th field="id" width="20" align="center" hidden="true">Id</th>
+        <th field="customerName" width="60" align="center">Customer Name</th>
+        <th field="date" width="30" align="center">Date</th>
+        <th field="number" width="40" align="center">Number</th>
+        <th field="type" width="30" align="center">Type</th>
+        <th field="amount" width="20" align="right" formatter="formatAmount">Amount</th>
+        <th field="state" width="30" align="center" formatter="formatState">Paid</th>
+        <th field="user" width="20" align="center">User</th>
+        <th field="remarks" width="100" align="center">Remarks</th>
+        </thead>
+    </table>
+
+    <div id="tb">
+        <fieldset style="border-color: #E7F0FF">
+            <legend>Query Setting</legend>
+            &nbsp;&nbsp;&nbsp;Date:&nbsp;
+            <input id="s_begin" class="easyui-datebox" editable=false style="width:100px"/>
+            &nbsp;&nbsp;-&nbsp;&nbsp;
+            <input id="s_end" class="easyui-datebox" editable=false style="width:100px"/>
+            &nbsp;&nbsp;&nbsp;Customer:&nbsp;<input class="easyui-combobox" id="s_customer" name="customer.id" style="width: 200px" required="true" data-options="required:true,panelHeight:'auto',valueField:'id',textField:'name',url:'/admin/customer/comboList'"/>
+            &nbsp;&nbsp;&nbsp;Paid:&nbsp;
+            <select class="easyui-combobox" id="s_state" style="width: 100px" editable="false" panelHeight="auto">
+                <option value="">All</option>
+                <option value="1">Paid</option>
+                <option value="2">Unpaid</option>
+            </select>
+            &nbsp;&nbsp;<a href="javascript:search()" class="easyui-linkbutton" iconCls="icon-search" plain="true">Search</a>
+            &nbsp;&nbsp;<a href="javascript:pay()" class="easyui-linkbutton" iconCls="icon-ok" plain="true">Pay</a>
+        </fieldset>
+    </div>
+</div>
+<div region="center" style="margin-top: 5px">
+    <table id="dg2" class="easyui-datagrid"
+           fitColumns="true" rownumbers="true" singleSelect="true" fit="true">
+        <thead>
+        <th field="code" width="30" align="center">Code</th>
+        <th field="name" width="150" align="center">Name</th>
+        <th field="model" width="50" align="center">Model</th>
+        <th field="price" width="50" align="right" formatter="formatPrice">Unit Price</th>
+        <th field="num" width="50" align="center">Quantity</th>
+        <th field="unit" width="50" align="center">Unit</th>
+        <th field="total" width="50" align="right" formatter="formatTotal">Total</th>
+        </thead>
+    </table>
+</div>
+
+</body>
+</html>

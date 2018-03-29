@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Overflow List</title>
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/default/easyui.css}" />
+    <link rel="stylesheet" th:href="@{/jquery-easyui-1.3.3/themes/icon.css}" />
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/jquery.easyui.min.js}"></script>
+    <script type="text/javascript" th:src="@{/jquery-easyui-1.3.3/locale/easyui-lang-zh_CN.js}"></script>
+    <script type="text/javascript" th:src="@{/js/date.js}"></script>
+    <script type="text/javascript" th:inline="javascript">
+
+        var url
+
+        $(document).ready(function () {
+
+            $("#overflowDate").datebox("setValue", genTodayStr())
+
+            $("#orderId").load("/admin/overflowList/genCode")
+
+            $("#dg").datagrid({
+                onDblClickRow:function(index,row){
+                    $("#saveAddAddNextButton").hide();
+                    $("#dlg2").dialog("open").dialog("setTitle","Modify Overflow list goods");
+                    $("#fm2").form("load",row);
+                    $("#lastPurchasingPrice").val("¥"+row.lastPurchasingPrice);
+                    $("#price").numberbox("setValue",row.price);
+                    $("#num").numberbox("setValue",row.num);
+                    $("#action").val("modify");
+                    $("#num").focus();
+                    $("#rowIndex").val($("#dg").datagrid("getRowIndex",row));
+                }
+            });
+
+            $("#dg2").datagrid({
+                onDblClickRow:function(index,row){
+                    $("#saveAddAddNextButton").show();
+                    $("#dlg2").dialog("open").dialog("setTitle","Chosse Goods");
+                    $("#fm2").form("load",row);
+                    $("#lastPurchasingPrice").val("¥"+row.lastPurchasingPrice);
+                    $("#price").numberbox("setValue",row.lastPurchasingPrice);
+                    $("#action").val("add");
+                    $("#num").focus();
+                }
+            });
+        })
+
+        function saveOverflowGoods() {
+            $("#overflowNumber").val($("#orderId").text())
+            $("#goodsJson").val(JSON.stringify($("#dg").datagrid("getData").rows))
+            $("#fm").form("submit", {
+                url: "/admin/overflowList/save",
+                onSubmit: function () {
+                    if ($("#dg").datagrid("getRows").length == 0) {
+                        $.messager.alert("System Information", "Please add goods")
+                        return false
+                    }
+                    if (!$(this).form("validate")) {
+                        return false
+                    }
+                    return true
+                },
+                success: function (result) {
+                    var result = eval("(" + result + ")")
+                    if(result.success){
+                        alert("Save success")
+                        window.location.reload()
+                    }else{
+                        $.messager.alert("System Information",result.errorInfo)
+                    }
+                }
+            })
+        }
+
+        function formatLastPurchasingPrice(val,row){
+            return "¥"+val;
+        }
+
+        function formatPurchasingPrice(val,row){
+            return "¥"+val;
+        }
+
+        function searchGoods() {
+            $("#dg2").datagrid("load", {
+                "codeOrName": $("#s_codeOrName").val()
+            })
+        }
+
+        // Goods Type
+        function openGoodsTypeAddDialog() {
+            $("#dlg3").dialog("open").dialog("setTitle", "Add new goods type")
+        }
+
+        function deleteGoodsType() {
+            var node = $("#tree").tree("getSelected")
+            var id = node.id
+            $.post("/admin/goodsType/delete", {id: id}, function (result) {
+                if (result.success) {
+                    $("#tree").tree("reload")
+                    $("#del").linkbutton("disable")
+                }else {
+                    $.messager.alert("System Information", result.errorInfo)
+                }
+            }, "json")
+        }
+
+        function saveGoodsType(){
+            if(!$("#fm3").form("validate")){
+                return;
+            }
+            var goodsTypeName=$('#goodsTypeName').val();
+            var node=$("#tree").tree("getSelected");
+            var parentId;
+            if(node==null){
+                parentId=1
+            }else{
+                parentId=node.id
+            }
+            $.post("/admin/goodsType/save",{name:goodsTypeName,parentId:parentId},function(result){
+                if(result.success){
+                    $("#tree").tree("reload")
+                    closeGoodsTypeDialog()
+                }else{
+                    $.messager.alert("System Information","Submit fail, please contact administer")
+                }
+            },"json")
+        }
+
+        function closeGoodsTypeDialog() {
+            $("#dlg3").dialog("close")
+            $("#goodsTypeName").val("")
+        }
+
+        // Overflow List Goods
+        function openOverflowListGoodsAddDialog() {
+            $("#dlg").dialog("open").dialog("setTitle", "Choosing Overflow goods")
+
+            $("#tree").tree({
+                url: "/admin/goodsType/loadTreeInfo",
+                onLoadSuccess: function () {
+                    var rootNode = $("#tree").tree("getRoot")
+                    $("#tree").tree("expand", rootNode.target)
+                },
+                onClick:function (node) {
+                    if (node.attributes.state == 0) {
+                        $("#del").linkbutton("enable")
+                    }else {
+                        $("#del").linkbutton("disable")
+                    }
+                    $("#dg2").datagrid("load", {
+                        "type.id": node.id
+                    })
+                }
+            })
+        }
+
+        function openOverflowListGoodsModifyDialog() {
+            $("#saveAddAddNextButton").hide()
+            var selectedRows = $("#dg").datagrid("getSelections")
+            if (selectedRows.length != 1) {
+                $.messager.alert("System Information", "Please choose one goods")
+                return
+            }
+            var row = selectedRows[0]
+            $("#dlg2").dialog("open").dialog("setTitle", "Modify Overflow list goods")
+            $("#fm2").form("load", row)
+            $("#lastPurchasingPrice").val("¥"+row.lastPurchasingPrice)
+            $("#price").numberbox("setValue", row.price)
+            $("#num").numberbox("setValue", row.num)
+            $("#action").val("modify")
+            $("#num").focus()
+            $("#rowIndex").val($("#dg").datagrid("getRowIndex"), row)
+        }
+
+        function deleteOverflowListGoods() {
+            var selectedRows=$("#dg").datagrid("getSelections")
+            if(selectedRows.length!=1){
+                $.messager.alert("System Information","Please choose one item to delete")
+                return
+            }
+            $.messager.confirm("System Information","Do you want to delete this item",function(r){
+                if(r){
+                    $("#dg").datagrid("deleteRow",$("#dg").datagrid("getRowIndex",selectedRows[0]))
+                    setOverflowListAmount()
+                }
+            })
+        }
+
+        function setOverflowListAmount() {
+            var rows=$("#dg").datagrid("getRows");
+            var amount=0;
+            for(var i=0;i<rows.length;i++){
+                var row=rows[i];
+                amount+=row.total;
+            }
+            $("#amountPayable").val(amount.toFixed(2));
+            $("#amountPaid").val(amount.toFixed(2));
+        }
+
+        function openGoodsChooseDialog() {
+            $("#saveAddAddNextButton").show()
+            var selectedRows = $("#dg2").datagrid("getSelections")
+            if(selectedRows.length!=1){
+                $.messager.alert("System Information","Please choose one item to add")
+                return
+            }
+            var row=selectedRows[0];
+            $("#dlg2").dialog("open").dialog("setTitle","Choose goods");
+            $("#fm2").form("load",row);
+            $("#lastPurchasingPrice").val("¥"+row.lastPurchasingPrice);
+            $("#price").numberbox("setValue",row.lastPurchasingPrice);
+            $("#action").val("add");
+            $("#num").focus();
+        }
+
+        function resetValue(){
+            $("#price").numberbox("setValue","");
+            $("#num").numberbox("setValue","");
+        }
+
+        function saveGoods(type){
+            var action=$("#action").val();
+            if(!$("#fm4").form("validate")){
+                return;
+            }
+            if(action=="add"){
+                var selectedRows=$("#dg2").datagrid("getSelections");
+                var row=selectedRows[0];
+                var price=$("#price").numberbox("getValue");
+                var num=$("#num").numberbox("getValue");
+                var total=price*num;
+                $("#dg").datagrid("appendRow",{
+                    code:row.code,
+                    name:row.name,
+                    model:row.model,
+                    unit:row.unit,
+                    price:price,
+                    num:num,
+                    total:total,
+                    typeId:row.type.id,
+                    goodsId:row.id,
+                    inventoryQuantity:row.inventoryQuantity,
+                    lastPurchasingPrice:row.lastPurchasingPrice
+                });
+            }else if(action=="modify"){
+                var rowIndex=$("#rowIndex").val();
+                var selectedRows=$("#dg").datagrid("getSelections");
+                var row=selectedRows[0];
+                var price=$("#price").numberbox("getValue");
+                var num=$("#num").numberbox("getValue");
+                var total=price*num;
+                $("#dg").datagrid("updateRow",{
+                    index:rowIndex,
+                    row:{
+                        code:row.code,
+                        name:row.name,
+                        model:row.model,
+                        unit:row.unit,
+                        price:price,
+                        num:num,
+                        total:total,
+                        typeId:row.typeId,
+                        goodsId:row.id,
+                        inventoryQuantity:row.inventoryQuantity,
+                        lastPurchasingPrice:row.lastPurchasingPrice
+                    }
+                });
+            }
+            setOverflowListAmount();
+            if(type==1){
+                closeGoodsDialog();
+            }
+            closeGoodsChooseDialog();
+        }
+
+        function closeGoodsDialog(){
+            $('#s_codeOrName').val('');
+            $("#dlg").dialog("close");
+        }
+
+        function closeGoodsChooseDialog(){
+            resetValue();
+            $("#dlg2").dialog("close");
+        }
+
+
+    </script>
+</head>
+<body class="easyui-layout">
+<div data-options="region: 'north'" style="height: 135px; padding: 10px; border: 0px; padding: 20px">
+    <fieldset style="border-color: #E7F0FF">
+        <legend><span id="orderId"></span></legend>
+        <form id="fm" method="post">
+            <table cellspacing="8px">
+                <tr>
+                    <td>
+                        &nbsp;&nbsp;Overflow Date:<input type="text" id="overflowDate" name="overflowDate" class="easyui-datebox" required="true" data-options="editable:false" size="18"/>
+                        &nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;Remarks:<input type="text" id="remarks" name="remarks"   size="78"/>
+                    </td>
+                    <td>
+                        <input type="hidden" id="overflowNumber" name="overflowNumber"/>
+                        <input type="hidden" id="goodsJson" name="goodsJson"/>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<a href="javascript:saveOverflowGoods()" class="easyui-linkbutton" iconCls="icon-ok" >Save</a>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </fieldset>
+</div>
+
+<div data-options="region:'center'" style="padding: 10px; border: 1px">
+    <table id="dg" class="easyui-datagrid" style="height: 1200px;"
+           fitColumns="true" rownumbers="true" singleSelect="true"
+           fit="true" toolbar="#tb">
+        <thead>
+        <th field="code" width="30" align="center">Code</th>
+        <th field="name" width="150" align="center">Name</th>
+        <th field="model" width="50" align="center">Model</th>
+        <th field="unit" width="50" align="center">Unit</th>
+        <th field="price" width="50" align="center">Price</th>
+        <th field="num" width="50" align="center">Number</th>
+        <th field="total" width="50" align="center">Total Amount</th>
+        </thead>
+    </table>
+
+    <div id="tb">
+        <div style="padding: 2px">
+            <a href="javascript:openOverflowListGoodsAddDialog()" class="easyui-linkbutton" iconCls="icon-add" plain="true">Add</a>
+            <a href="javascript:openOverflowListGoodsModifyDialog()" class="easyui-linkbutton" iconCls="icon-edit" plain="true">Edit</a>
+            <a href="javascript:deleteOverflowListGoods()" class="easyui-linkbutton" iconCls="icon-add" plain="true">Delete</a>
+        </div>
+    </div>
+</div>
+
+<div id="dlg" class="easyui-dialog" style="width: 800px; height: 460px;"
+     closed="true" data-options="onClose: function(){$('#s_codeOrName').val('');}">
+    <div class="easyui-layout" style="width: 100%; height: 100%" >
+        <div region="north" style="height: 50px">
+            <div style="padding-top: 8px; padding-left: 40px">
+                &nbsp; Code or Name:&nbsp;<input type="text" id="s_codeOrName" size="20" onkeydown="if(event.keyCode == 13) searchGoods()"/>
+                <a href="javascript:searchGoods()" class="easyui-linkbutton" iconCls="icon-search" plain="true">Search</a>
+            </div>
+        </div>
+        <div data-options="region: 'west', collapsible:false" style="width: 200px" title="Goods Type" split=true>
+            <ul id="tree" class="easyui-tree" style="padding:10px"></ul>
+            <div style="position:absolute; bottom: 10px; left: 15px;">
+                <a href="javascript:openGoodsTypeAddDialog()" class="easyui-linkbutton" iconCls="icon-add">Add</a>
+                <a id="del" href="javascript:deleteGoodsType()" class="easyui-linkbutton" disable=true iconCls="icon-remove">Delete</a>
+            </div>
+        </div>
+
+        <div data-options="region:'center'">
+            <table id="dg2" title="Goods Management" class="easyui-datagrid"
+                   fitColumns="true" pagination="true" rownumbers="true" singleSelect="true"
+                   url="/admin/goods/list" fit="true" toolbar="#tb2">
+                <thead>
+                <th field="id" width="30" hidden="true" align="center">Id</th>
+                <th field="code" width="50" align="center">Code</th>
+                <th field="name" width="150" align="left">Name</th>
+                <th field="model" width="50" align="center">Model</th>
+                <th field="unit" width="50" align="center">Unit</th>
+                <th field="lastPurchasingPrice" width="50" align="right" formatter="formatLastPurchasingPrice">Last Purchasing Price</th>
+                <th field="purchasingPrice" width="50" align="right" formatter="formatPurchasingPrice">Purchasing Price</th>
+                <th field="inventoryQuantity" width="50" align="center">Inventory Quantity</th>
+                </thead>
+            </table>
+
+            <div id="tb2">
+                <div>
+                    <a href="javascript:openGoodsChooseDialog()" class="easyui-linkbutton" iconCls="icon-ok" plain="true">Choose</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="dlg2" class="easyui-dialog" style="width: 450px;height: 265px;padding: 5px 5px"
+     closed="true" buttons="#dlg-buttons2" data-options="onClose:function(){resetValue()}">
+    <fieldset style="border-color: #E7F0FF">
+        <legend>Goods</legend>
+        <form id="fm2" method="post">
+            <table cellspacing="8px">
+                <tr>
+                    <td>Code:</td>
+                    <td>
+                        <input type="text" id="code" name="code" readonly="readonly" size="10"/>
+                    </td>
+                    <td width="60">Name:</td>
+                    <td>
+                        <input type="text" id="name" name="name" readonly="readonly" size="10"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Model:</td>
+                    <td>
+                        <input type="text" id="model" name="model" readonly="readonly" size="10"/>
+                    </td>
+                    <td>Unit</td>
+                    <td>
+                        <input type="text" id="unit" name="unit" readonly="readonly" size="10"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Last Purchasing Price:</td>
+                    <td>
+                        <input type="text" id="lastPurchasingPrice" name="lastPurchasingPrice" readonly="readonly" size="10"/>
+                    </td>
+                    <td>Inventory Quantity</td>
+                    <td>
+                        <input type="text" id="inventoryQuantity" name="inventoryQuantity" readonly="readonly" size="10"/>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </fieldset>
+    <div style="padding-left: 12px;padding-top: 10px">
+        <form id="fm4" method="post">
+            <table cellspacing="8px">
+                <tr>
+                    <td align="right">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Unit Price</td>
+                    <td>
+                        <input type="hidden" id="action"/>
+                        <input type="hidden" id="rowIndex"/>
+                        <input type="text" id="price" name="price" class="easyui-numberbox" data-options="min:0,precision:2" required="true" size="10"/>
+                    </td>
+                    <td align="right" width="60">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Quantity: </td>
+                    <td>
+                        <input type="text" id="num" name="num" class="easyui-numberbox" data-options="min:1" required="true" size="10"/>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </div>
+</div>
+
+<div id="dlg-buttons2">
+    <a id="saveAddAddNextButton" href="javascript:saveGoods(2)" class="easyui-linkbutton" iconCls="icon-ok" >Save and add next goods</a>
+    <a href="javascript:saveGoods(1)" class="easyui-linkbutton" iconCls="icon-ok" >Save</a>
+    <a href="javascript:closeGoodsChooseDialog()" class="easyui-linkbutton" iconCls="icon-cancel" >Close</a>
+</div>
+
+<div id="dlg3" class="easyui-dialog" style="width: 300px;height: 120px;padding: 10px 20px"
+     closed="true" buttons="#dlg-buttons3" data-options="onClose:function(){$('#goodsTypeName').val('');}">
+    <form id="fm3" method="post">
+        <div>
+            Goods Type：&nbsp;<input type="text" id="goodsTypeName" name="goodsTypeName" class="easyui-validatebox" required="true"/>
+        </div>
+    </form>
+</div>
+
+<div id="dlg-buttons3">
+    <a href="javascript:saveGoodsType()" class="easyui-linkbutton" iconCls="icon-ok" >Save</a>
+    <a href="javascript:closeGoodsTypeDialog()" class="easyui-linkbutton" iconCls="icon-cancel" >Close</a>
+</div>
+
+</body>
+</html>

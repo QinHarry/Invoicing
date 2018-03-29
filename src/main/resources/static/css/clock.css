@@ -1,0 +1,16 @@
+@charset "UTF-8";
+.clock {
+    float:right;
+    width: 300px;
+    height: 30px;
+    padding-left: 20px;
+    color: rgb(0, 76, 126);
+    background: url(../images/clock.gif) no-repeat;
+    font-size: 14px;
+}
+
+.userInfo{
+    float:left;
+    padding-left: 20px;
+    padding-top: 30px;
+}
